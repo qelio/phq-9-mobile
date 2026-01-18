@@ -1,238 +1,195 @@
-// src/screens/profile/TelegramLinkScreen.js
-import React, { useState, useRef } from 'react';
+// src/screens/main/ResultScreen.js
+import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     Alert,
-    Linking,
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    TouchableWithoutFeedback,
-    Keyboard,
-    TextInput,
+    Share,
+    TouchableOpacity,
 } from 'react-native';
-import { useAuthStore } from '../../store/authStore';
+import { useQuestionnaireStore } from '../../store/questionnaireStore';
 import colors from '../../constants/colors';
 import Button from '../../components/common/Button';
-import Header from '../../components/common/Header';
+import SeverityBadge from '../../components/questionnaire/SeverityBadge';
 import Card from '../../components/common/Card';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
+export default function ResultScreen({ navigation, route }) {
+    const { resultId, resultData } = route.params;
+    const { requestInterpretation, isLoading } = useQuestionnaireStore();
 
-export default function TelegramLinkScreen({ navigation }) {
-    const { user, linkTelegram, isLoading } = useAuthStore();
+    const [requestedInterpretation, setRequestedInterpretation] = useState(false);
 
-    const [telegramUsername, setTelegramUsername] = useState('');
-    const [verificationCode, setVerificationCode] = useState('');
-    const [step, setStep] = useState(1);
-    const [errors, setErrors] = useState({});
-
-    const usernameInputRef = useRef(null);
-    const codeInputRef = useRef(null);
-
-    const handleStartLinking = () => {
-        const newErrors = {};
-
-        if (!telegramUsername.trim()) {
-            newErrors.telegramUsername = 'Введите username Telegram';
-        } else if (!telegramUsername.startsWith('@')) {
-            newErrors.telegramUsername = 'Username должен начинаться с @';
-        }
-
-        if (Object.keys(newErrors).length > 0) {
-            setErrors(newErrors);
-            return;
-        }
-
-        setStep(2);
-        Alert.alert(
-            'Код подтверждения',
-            'Для завершения привязки введите код 123456 в поле ниже'
+    if (!resultData) {
+        return (
+            <View style={styles.container}>
+                <Text>Результаты не загружены</Text>
+            </View>
         );
+    }
 
-        // Фокус на поле с кодом
-        setTimeout(() => {
-            codeInputRef.current?.focus();
-        }, 100);
-    };
+    const {
+        total_score,
+        severity,
+        interpretation,
+        recommendations,
+        has_suicidal_risk,
+        requires_interpretation,
+        created_at,
+    } = resultData;
 
-    const handleCompleteLinking = async () => {
-        if (!verificationCode.trim()) {
-            Alert.alert('Ошибка', 'Введите код подтверждения');
-            return;
-        }
-
+    const handleRequestInterpretation = async () => {
         try {
-            await linkTelegram(telegramUsername, verificationCode);
-            Alert.alert('Успех', 'Telegram успешно привязан');
-            navigation.goBack();
+            Alert.alert(
+                'Запрос интерпретации',
+                'Отправить результат на интерпретацию администратору?',
+                [
+                    { text: 'Отмена', style: 'cancel' },
+                    {
+                        text: 'Отправить',
+                        onPress: async () => {
+                            await requestInterpretation(resultId);
+                            setRequestedInterpretation(true);
+                            Alert.alert(
+                                'Успешно',
+                                'Запрос отправлен администратору. Вы получите уведомление, когда интерпретация будет готова.'
+                            );
+                        },
+                    },
+                ]
+            );
         } catch (error) {
-            Alert.alert('Ошибка', error.message || 'Не удалось привязать Telegram');
+            Alert.alert('Ошибка', 'Не удалось отправить запрос');
         }
     };
 
-    const handleOpenTelegram = () => {
-        Linking.openURL('https://t.me/your_bot_username').catch(() => {
-            Alert.alert('Ошибка', 'Не удалось открыть Telegram');
-        });
+    const handleShare = async () => {
+        try {
+            const message = `Результат теста PHQ-9:
+Балл: ${total_score}
+Тяжесть: ${severity}
+${has_suicidal_risk ? '⚠️ Имеется суицидальный риск' : ''}
+
+${interpretation}
+
+Дата: ${new Date(created_at).toLocaleDateString('ru-RU')}`;
+
+            await Share.share({
+                message,
+                title: 'Результаты теста PHQ-9',
+            });
+        } catch (error) {
+            console.error('Error sharing:', error);
+        }
     };
 
-    const handleUnlink = () => {
-        Alert.alert(
-            'Отвязка Telegram',
-            'Вы уверены, что хотите отвязать Telegram?',
-            [
-                { text: 'Отмена', style: 'cancel' },
-                {
-                    text: 'Отвязать',
-                    style: 'destructive',
-                    onPress: () => Alert.alert('В разработке', 'Функция в разработке'),
-                },
-            ]
-        );
+    const handleViewHistory = () => {
+        navigation.navigate('History', { screen: 'HistoryList' });
+    };
+
+    const handleNewTest = () => {
+        navigation.navigate('Home');
     };
 
     return (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={styles.container}>
-                <Header
-                    title="Привязка Telegram"
-                    onBack={() => navigation.goBack()}
-                />
-
-                <KeyboardAvoidingView
-                    style={styles.content}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-                >
-                    <ScrollView
-                        style={styles.scrollView}
-                        contentContainerStyle={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {user?.telegram_username ? (
-                            <Card title="Telegram уже привязан" style={styles.wideCard}>
-                                <View style={styles.linkedContainer}>
-                                    <Text style={styles.linkedText}>
-                                        Привязан: {user.telegram_username}
-                                    </Text>
-                                    <Button
-                                        title="Отвязать"
-                                        variant="danger"
-                                        onPress={handleUnlink}
-                                        style={styles.unlinkButton}
-                                    />
-                                </View>
-                            </Card>
-                        ) : (
-                            <>
-                                <Card title="Инструкция" style={styles.wideCard}>
-                                    <Text style={styles.instructionText}>
-                                        1. Убедитесь, что у вас установлен Telegram{'\n'}
-                                        2. Ваш username должен быть публичным{'\n'}
-                                        3. Для получения уведомлений подпишитесь на нашего бота
-                                    </Text>
-
-                                    <Button
-                                        title="Открыть Telegram"
-                                        variant="outline"
-                                        onPress={handleOpenTelegram}
-                                        style={styles.telegramButton}
-                                    />
-                                </Card>
-
-                                <Card title="Привязка аккаунта" style={styles.wideCard}>
-                                    {step === 1 ? (
-                                        <>
-                                            <View style={styles.inputContainer}>
-                                                <Text style={styles.inputLabel}>
-                                                    Telegram Username
-                                                </Text>
-                                                <TextInput
-                                                    ref={usernameInputRef}
-                                                    style={[
-                                                        styles.textInput,
-                                                        errors.telegramUsername && styles.errorInput,
-                                                    ]}
-                                                    value={telegramUsername}
-                                                    onChangeText={(text) => {
-                                                        setTelegramUsername(text);
-                                                        if (errors.telegramUsername) {
-                                                            setErrors({});
-                                                        }
-                                                    }}
-                                                    placeholder="@username"
-                                                    autoCapitalize="none"
-                                                />
-                                                {errors.telegramUsername && (
-                                                    <Text style={styles.errorText}>
-                                                        {errors.telegramUsername}
-                                                    </Text>
-                                                )}
-                                            </View>
-
-                                            <Button
-                                                title="Продолжить"
-                                                onPress={handleStartLinking}
-                                                loading={isLoading}
-                                                disabled={isLoading}
-                                                style={styles.nextButton}
-                                            />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Text style={styles.stepText}>
-                                                Шаг 2: Подтверждение
-                                            </Text>
-
-                                            <View style={styles.inputContainer}>
-                                                <Text style={styles.inputLabel}>
-                                                    Код подтверждения
-                                                </Text>
-                                                <TextInput
-                                                    ref={codeInputRef}
-                                                    style={styles.textInput}
-                                                    value={verificationCode}
-                                                    onChangeText={setVerificationCode}
-                                                    placeholder="123456"
-                                                    keyboardType="number-pad"
-                                                    maxLength={6}
-                                                />
-                                            </View>
-
-                                            <Text style={styles.hintText}>
-                                                Введите код 123456 для тестирования
-                                            </Text>
-
-                                            <View style={styles.buttonRow}>
-                                                <Button
-                                                    title="Назад"
-                                                    variant="outline"
-                                                    onPress={() => setStep(1)}
-                                                    style={styles.backButton}
-                                                />
-
-                                                <Button
-                                                    title="Завершить"
-                                                    onPress={handleCompleteLinking}
-                                                    loading={isLoading}
-                                                    disabled={isLoading}
-                                                    style={styles.completeButton}
-                                                />
-                                            </View>
-                                        </>
-                                    )}
-                                </Card>
-                            </>
-                        )}
-                    </ScrollView>
-                </KeyboardAvoidingView>
+        <ScrollView style={styles.container}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Результаты теста</Text>
+                <Text style={styles.headerDate}>
+                    {new Date(created_at).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                    })}
+                </Text>
             </View>
-        </TouchableWithoutFeedback>
+
+            <Card style={styles.resultCard}>
+                <View style={styles.resultHeader}>
+                    <SeverityBadge severity={severity} score={total_score} />
+
+                    {has_suicidal_risk && (
+                        <View style={styles.suicideRiskWarning}>
+                            <Ionicons name="warning" size={24} color={colors.danger} />
+                            <Text style={styles.suicideRiskText}>
+                                ⚠️ Обнаружен суицидальный риск
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
+                <View style={styles.interpretationContainer}>
+                    <Text style={styles.sectionTitle}>Интерпретация</Text>
+                    <Text style={styles.interpretationText}>{interpretation}</Text>
+                </View>
+
+                {recommendations && (
+                    <View style={styles.recommendationsContainer}>
+                        <Text style={styles.sectionTitle}>Рекомендации</Text>
+                        <Text style={styles.recommendationsText}>
+                            {typeof recommendations === 'string'
+                                ? recommendations
+                                : recommendations.recommendation}
+                        </Text>
+                    </View>
+                )}
+            </Card>
+
+            <Card title="Действия">
+                <View style={styles.actionsContainer}>
+                    <Button
+                        title="Поделиться результатом"
+                        variant="outline"
+                        onPress={handleShare}
+                        icon={() => <Ionicons name="share-social" size={20} color={colors.primary} />}
+                        style={styles.actionButton}
+                    />
+
+
+                    {requestedInterpretation && (
+                        <View style={styles.requestedContainer}>
+                            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+                            <Text style={styles.requestedText}>
+                                Запрос на интерпретацию отправлен
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            </Card>
+
+            <View style={styles.bottomButtons}>
+                <Button
+                    title="История тестов"
+                    variant="outline"
+                    onPress={handleViewHistory}
+                    style={styles.bottomButton}
+                />
+                <Button
+                    title="Новый тест"
+                    onPress={handleNewTest}
+                    style={styles.bottomButton}
+                />
+            </View>
+
+            {has_suicidal_risk && (
+                <Card style={styles.emergencyCard}>
+                    <View style={styles.emergencyHeader}>
+                        <Ionicons name="alert-circle" size={24} color={colors.danger} />
+                        <Text style={styles.emergencyTitle}>Экстренная помощь</Text>
+                    </View>
+                    <Text style={styles.emergencyText}>
+                        Если у вас есть мысли о самоубийстве, немедленно обратитесь за помощью:
+                        {'\n\n'}• Телефон доверия: 8-800-2000-122
+                        {'\n'}• Экстренная психологическая помощь: 112
+                        {'\n'}• Обратитесь к психиатру или психотерапевту
+                    </Text>
+                </Card>
+            )}
+        </ScrollView>
     );
 }
 
@@ -241,100 +198,113 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
-    content: {
-        flex: 1,
+    header: {
+        backgroundColor: colors.white,
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.gray,
     },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingBottom: 30,
-    },
-    wideCard: {
-        marginHorizontal: 8,
-        marginVertical: 8,
-        borderRadius: 12,
-        padding: 16,
-    },
-    linkedContainer: {
-        alignItems: 'center',
-        paddingVertical: 20,
-    },
-    linkedText: {
-        fontSize: 18,
-        color: colors.primary,
-        marginBottom: 20,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    unlinkButton: {
-        width: '100%',
-        maxWidth: 200,
-    },
-    instructionText: {
-        fontSize: 16,
-        color: colors.textSecondary,
-        lineHeight: 24,
-        marginBottom: 20,
-    },
-    telegramButton: {
-        marginTop: 10,
-    },
-    stepText: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: colors.primary,
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    inputContainer: {
-        marginBottom: 16,
-    },
-    inputLabel: {
-        fontSize: 14,
-        fontWeight: '600',
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
         color: colors.textPrimary,
         marginBottom: 8,
     },
-    textInput: {
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.border || colors.gray,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-        fontSize: 16,
-        color: colors.textPrimary,
-        minHeight: 44,
-    },
-    errorInput: {
-        borderColor: colors.danger,
-    },
-    errorText: {
-        fontSize: 14,
-        color: colors.danger,
-        marginTop: 4,
-    },
-    hintText: {
+    headerDate: {
         fontSize: 14,
         color: colors.textSecondary,
-        textAlign: 'center',
-        marginTop: 8,
+    },
+    resultCard: {
+        marginTop: 16,
+    },
+    resultHeader: {
         marginBottom: 20,
+    },
+    suicideRiskWarning: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: `${colors.danger}15`,
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 12,
+    },
+    suicideRiskText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.danger,
+        marginLeft: 8,
+    },
+    interpretationContainer: {
+        marginBottom: 20,
+    },
+    recommendationsContainer: {
+        marginBottom: 10,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.textPrimary,
+        marginBottom: 12,
+    },
+    interpretationText: {
+        fontSize: 16,
+        color: colors.textPrimary,
+        lineHeight: 24,
+    },
+    recommendationsText: {
+        fontSize: 16,
+        color: colors.textPrimary,
+        lineHeight: 24,
         fontStyle: 'italic',
     },
-    nextButton: {
-        marginTop: 10,
-    },
-    buttonRow: {
-        flexDirection: 'row',
+    actionsContainer: {
         gap: 12,
-        marginTop: 20,
     },
-    backButton: {
+    actionButton: {
+        marginBottom: 8,
+    },
+    requestedContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        backgroundColor: `${colors.success}15`,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    requestedText: {
+        fontSize: 16,
+        color: colors.success,
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+    bottomButtons: {
+        flexDirection: 'row',
+        padding: 16,
+        gap: 12,
+    },
+    bottomButton: {
         flex: 1,
     },
-    completeButton: {
-        flex: 1,
+    emergencyCard: {
+        margin: 16,
+        borderColor: colors.danger,
+        borderWidth: 2,
+    },
+    emergencyHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    emergencyTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.danger,
+        marginLeft: 8,
+    },
+    emergencyText: {
+        fontSize: 14,
+        color: colors.textPrimary,
+        lineHeight: 20,
     },
 });

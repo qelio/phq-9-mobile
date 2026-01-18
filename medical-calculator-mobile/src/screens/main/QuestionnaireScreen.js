@@ -1,5 +1,5 @@
 // src/screens/main/QuestionnaireScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Добавляем useEffect
 import {
     View,
     Text,
@@ -25,6 +25,15 @@ export default function QuestionnaireScreen({ navigation, route }) {
 
     const [localAnswers, setLocalAnswers] = useState({});
 
+    // Синхронизируем локальные ответы с store
+    useEffect(() => {
+        // При загрузке экрана, инициализируем localAnswers из store
+        setLocalAnswers(answers);
+    }, []);
+
+    // Объединяем ответы из store и локальные
+    const allAnswers = { ...answers, ...localAnswers };
+
     if (!currentTest || !currentTest.questions) {
         return (
             <View style={styles.container}>
@@ -37,10 +46,6 @@ export default function QuestionnaireScreen({ navigation, route }) {
     const currentQuestion = questions[currentQuestionIndex];
     const totalQuestions = questions.length;
 
-    // Объединяем ответы из store и локальные
-    const allAnswers = { ...answers, ...localAnswers };
-    const currentAnswer = allAnswers[currentQuestion?.id];
-
     const handleAnswerSelect = (value) => {
         // Сохраняем ответ локально
         setLocalAnswers(prev => ({
@@ -48,7 +53,7 @@ export default function QuestionnaireScreen({ navigation, route }) {
             [currentQuestion.id]: value
         }));
 
-        // Если это не последний вопрос, переходим к следующему
+        // Если это не последний вопрос, сразу сохраняем в store
         if (currentQuestionIndex < totalQuestions - 1) {
             answerQuestion(currentQuestion.id, value);
         }
@@ -61,7 +66,7 @@ export default function QuestionnaireScreen({ navigation, route }) {
     };
 
     const handleSubmit = async () => {
-        // Собираем все ответы
+        // Собираем все ответы - теперь включая локальные
         const finalAnswers = { ...answers, ...localAnswers };
 
         // Проверяем, что все вопросы отвечены
@@ -79,6 +84,15 @@ export default function QuestionnaireScreen({ navigation, route }) {
         }
 
         try {
+            // Сохраняем ответ на последний вопрос перед отправкой
+            const lastAnswer = localAnswers[currentQuestion.id];
+            if (lastAnswer !== undefined) {
+                // Важно: обновляем store перед отправкой
+                const store = useQuestionnaireStore.getState();
+                const updatedAnswers = { ...store.answers, [currentQuestion.id]: lastAnswer };
+                useQuestionnaireStore.setState({ answers: updatedAnswers });
+            }
+
             const result = await submitQuestionnaire('mobile');
 
             // Переходим на экран результатов
@@ -91,22 +105,19 @@ export default function QuestionnaireScreen({ navigation, route }) {
         }
     };
 
-    const handleSkip = () => {
-        if (currentQuestionIndex < totalQuestions - 1) {
-            answerQuestion(currentQuestion.id, 0); // По умолчанию 0
-        } else {
+    const handleNext = () => {
+        const currentAnswer = localAnswers[currentQuestion.id];
+
+        if (currentAnswer === undefined) {
             Alert.alert(
-                'Пропустить вопрос?',
-                'Вы не ответили на последний вопрос. Хотите пропустить его?',
-                [
-                    { text: 'Отмена', style: 'cancel' },
-                    {
-                        text: 'Пропустить',
-                        onPress: () => handleAnswerSelect(0)
-                    },
-                ]
+                'Не выбран ответ',
+                'Пожалуйста, выберите вариант ответа перед продолжением.'
             );
+            return;
         }
+
+        // Сохраняем ответ в store
+        answerQuestion(currentQuestion.id, currentAnswer);
     };
 
     return (
@@ -115,7 +126,7 @@ export default function QuestionnaireScreen({ navigation, route }) {
                 question={currentQuestion}
                 questionNumber={currentQuestionIndex + 1}
                 totalQuestions={totalQuestions}
-                selectedAnswer={currentAnswer}
+                selectedAnswer={localAnswers[currentQuestion?.id]} // Используем localAnswers
                 onAnswerSelect={handleAnswerSelect}
             />
 
@@ -129,13 +140,6 @@ export default function QuestionnaireScreen({ navigation, route }) {
                             style={[styles.button, styles.backButton]}
                         />
                     )}
-
-                    {/*<Button*/}
-                    {/*    title="Пропустить"*/}
-                    {/*    variant="outline"*/}
-                    {/*    onPress={handleSkip}*/}
-                    {/*    style={[styles.button, styles.skipButton]}*/}
-                    {/*/>*/}
                 </View>
 
                 {currentQuestionIndex === totalQuestions - 1 ? (
@@ -149,17 +153,8 @@ export default function QuestionnaireScreen({ navigation, route }) {
                 ) : (
                     <Button
                         title="Далее"
-                        onPress={() => {
-                            if (currentAnswer !== undefined) {
-                                answerQuestion(currentQuestion.id, currentAnswer);
-                            } else {
-                                Alert.alert(
-                                    'Не выбран ответ',
-                                    'Пожалуйста, выберите вариант ответа перед продолжением.'
-                                );
-                            }
-                        }}
-                        disabled={currentAnswer === undefined}
+                        onPress={handleNext}
+                        disabled={localAnswers[currentQuestion.id] === undefined}
                         style={styles.nextButton}
                     />
                 )}
@@ -167,7 +162,6 @@ export default function QuestionnaireScreen({ navigation, route }) {
         </View>
     );
 }
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,

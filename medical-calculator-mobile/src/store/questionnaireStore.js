@@ -70,7 +70,7 @@ export const useQuestionnaireStore = create((set, get) => ({
                 question_id: questionId,
                 value: parseInt(value, 10),
             }));
-
+            console.log(answersArray);
             const data = {
                 questionnaire_code: currentTest.code,
                 answers: answersArray,
