@@ -20,6 +20,51 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
+// Функция для перевода степени тяжести на русский
+const translateSeverity = (severity) => {
+    if (!severity) return 'Не определена';
+
+    const severityLower = severity.toLowerCase();
+
+    switch (severityLower) {
+        case 'minimal':
+        case 'minimal depression':
+            return 'Минимальная';
+        case 'mild':
+        case 'mild depression':
+            return 'Легкая';
+        case 'moderate':
+        case 'moderate depression':
+            return 'Умеренная';
+        case 'moderately severe':
+        case 'moderately severe depression':
+            return 'Достаточно тяжелая';
+        case 'severe':
+        case 'severe depression':
+            return 'Тяжелая';
+        case 'no depression':
+            return 'Нет депрессии';
+        default:
+            // Если строка содержит ключевые слова, но с другим форматированием
+            if (severityLower.includes('severe')) {
+                if (severityLower.includes('moderately')) {
+                    return 'Умеренно тяжелая';
+                }
+                return 'Тяжелая';
+            }
+            if (severityLower.includes('moderate')) {
+                return 'Умеренная';
+            }
+            if (severityLower.includes('mild')) {
+                return 'Легкая';
+            }
+            if (severityLower.includes('minimal')) {
+                return 'Минимальная';
+            }
+            return severity; // Возвращаем оригинал, если не нашли перевод
+    }
+};
+
 export default function HistoryScreen({ navigation }) {
     const { results, fetchHistory, isLoading } = useQuestionnaireStore();
     const [refreshing, setRefreshing] = useState(false);
@@ -51,94 +96,103 @@ export default function HistoryScreen({ navigation }) {
         }
     };
 
-    const renderResultItem = ({ item }) => (
-        <TouchableOpacity
-            onPress={() => navigation.navigate('ResultDetail', { resultId: item.id })}
-            activeOpacity={0.7}
-        >
-            <Card style={styles.resultCard}>
-                <View style={styles.resultHeader}>
-                    <Text style={styles.questionnaireName}>{item.questionnaire_name}</Text>
-                    <View style={[
-                        styles.statusBadge,
-                        item.is_interpreted ? styles.interpreted : styles.pending
-                    ]}>
-                        <Text style={[
-                            styles.statusText,
-                            item.is_interpreted ? styles.statusTextInterpreted : styles.statusTextPending
+    const renderResultItem = ({ item }) => {
+        // Получаем переведенную степень тяжести
+        const severityTranslated = translateSeverity(item.severity);
+
+        return (
+            <TouchableOpacity
+                onPress={() => navigation.navigate('ResultDetail', { resultId: item.id })}
+                activeOpacity={0.7}
+            >
+                <Card style={styles.resultCard}>
+                    <View style={styles.resultHeader}>
+                        <Text style={styles.questionnaireName}>{item.questionnaire_name}</Text>
+                        <View style={[
+                            styles.statusBadge,
+                            item.is_interpreted ? styles.interpreted : styles.pending
                         ]}>
-                            {item.is_interpreted ? 'Интерпретировано' : 'Ожидает'}
-                        </Text>
-                    </View>
-                </View>
-
-                <View style={styles.resultDetails}>
-                    <View style={styles.detailRow}>
-                        <View style={styles.detailItem}>
-                            <Ionicons name="calendar" size={16} color={colors.textSecondary} />
-                            <Text style={styles.detailText}>
-                                {formatDate(item.created_at, 'dd.MM.yyyy HH:mm')}
-                            </Text>
-                        </View>
-
-                        <View style={styles.detailItem}>
-                            <Ionicons name="stats-chart" size={16} color={colors.textSecondary} />
-                            <Text style={styles.detailText}>
-                                Балл: <Text style={styles.scoreText}>{item.total_score}</Text>
-                            </Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.detailRow}>
-                        <View style={styles.detailItem}>
-                            <Ionicons name="alert" size={16} color={colors.textSecondary} />
                             <Text style={[
-                                styles.detailText,
-                                getSeverityColor(item.severity)
+                                styles.statusText,
+                                item.is_interpreted ? styles.statusTextInterpreted : styles.statusTextPending
                             ]}>
-                                {item.severity}
+                                {item.is_interpreted ? 'Интерпретировано' : 'Ожидает'}
                             </Text>
                         </View>
+                    </View>
 
-                        {item.has_suicidal_risk && (
-                            <View style={[styles.detailItem, styles.warningItem]}>
-                                <Ionicons name="warning" size={16} color={colors.danger} />
-                                <Text style={[styles.detailText, styles.warningText]}>
-                                    Риск
+                    <View style={styles.resultDetails}>
+                        <View style={styles.detailRow}>
+                            <View style={styles.detailItem}>
+                                <Ionicons name="calendar" size={16} color={colors.textSecondary} />
+                                <Text style={styles.detailText}>
+                                    {formatDate(item.created_at, 'dd.MM.yyyy HH:mm')}
                                 </Text>
                             </View>
-                        )}
-                    </View>
-                </View>
 
-                {item.interpretation_comment && (
-                    <View style={styles.commentContainer}>
-                        <Text style={styles.commentLabel}>Комментарий:</Text>
-                        <Text style={styles.comment} numberOfLines={2}>
-                            {item.interpretation_comment}
-                        </Text>
+                            <View style={styles.detailItem}>
+                                <Ionicons name="stats-chart" size={16} color={colors.textSecondary} />
+                                <Text style={styles.detailText}>
+                                    Балл: <Text style={styles.scoreText}>{item.total_score}</Text>
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.detailRow}>
+                            <View style={styles.detailItem}>
+                                <Ionicons name="alert" size={16} color={colors.textSecondary} />
+                                <Text style={[
+                                    styles.detailText,
+                                    getSeverityColor(item.severity)
+                                ]}>
+                                    {severityTranslated}
+                                </Text>
+                            </View>
+
+                            {item.has_suicidal_risk && (
+                                <View style={[styles.detailItem, styles.warningItem]}>
+                                    <Ionicons name="warning" size={16} color={colors.danger} />
+                                    <Text style={[styles.detailText, styles.warningText]}>
+                                        Риск
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
                     </View>
-                )}
-            </Card>
-        </TouchableOpacity>
-    );
+
+                    {item.interpretation_comment && (
+                        <View style={styles.commentContainer}>
+                            <Text style={styles.commentLabel}>Комментарий:</Text>
+                            <Text style={styles.comment} numberOfLines={2}>
+                                {item.interpretation_comment}
+                            </Text>
+                        </View>
+                    )}
+                </Card>
+            </TouchableOpacity>
+        );
+    };
 
     const getSeverityColor = (severity) => {
-        switch (severity) {
-            case 'Severe':
-            case 'Moderately severe':
-                return { color: colors.danger };
-            case 'Moderate':
-                return { color: colors.warning };
-            default:
-                return { color: colors.success };
+        if (!severity) return { color: colors.textSecondary };
+
+        const severityLower = severity.toLowerCase();
+
+        if (severityLower.includes('severe')) {
+            return { color: colors.danger };
         }
+        if (severityLower.includes('moderate')) {
+            return { color: colors.warning };
+        }
+        if (severityLower.includes('mild') || severityLower.includes('minimal')) {
+            return { color: colors.success };
+        }
+        return { color: colors.textSecondary };
     };
 
     if (isLoading && results.length === 0) {
         return (
             <View style={styles.container}>
-
                 <Loader />
             </View>
         );
@@ -146,7 +200,6 @@ export default function HistoryScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
-
             {results.length === 0 ? (
                 <View style={styles.emptyContainer}>
                     <Ionicons name="document-text" size={64} color={colors.gray} />
@@ -184,7 +237,9 @@ export default function HistoryScreen({ navigation }) {
     );
 }
 
+// Стили остаются без изменений...
 const styles = StyleSheet.create({
+    // ... все стили остаются как были
     container: {
         flex: 1,
         backgroundColor: colors.background,

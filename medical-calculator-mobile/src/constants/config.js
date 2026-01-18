@@ -1,5 +1,5 @@
 // src/constants/config.js
-export const API_BASE_URL = 'http://192.168.3.45:5000/api'; // Замени на свой адрес
+export const API_BASE_URL = 'http://95.31.169.244:5000/api'; // Замени на свой адрес
 export const API_TIMEOUT = 30000;
 
 export const STORAGE_KEYS = {

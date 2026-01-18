@@ -34,7 +34,7 @@ const ResultCard = ({ result, onInterpret, showActions = true }) => {
                     {result.has_suicidal_risk && (
                         <View style={styles.warningContainer}>
                             <Ionicons name="warning" size={20} color={colors.danger} />
-                            <Text style={styles.warningText}>Суицидальный риск</Text>
+                            <Text style={styles.warningText}>Риск</Text>
                         </View>
                     )}
                 </View>
@@ -121,6 +121,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 20,
+        marginLeft: 10
     },
     warningText: {
         fontSize: 14,

@@ -5,6 +5,8 @@ import HomeScreen from '../screens/main/HomeScreen';
 import QuestionnaireScreen from '../screens/main/QuestionnaireScreen';
 import ResultScreen from '../screens/main/ResultScreen';
 import InterpretationRequestScreen from '../screens/main/InterpretationRequestScreen';
+import {TouchableOpacity} from "react-native";
+import {Ionicons} from "@expo/vector-icons";
 
 const Stack = createStackNavigator();
 
@@ -37,7 +39,20 @@ export default function HomeStack() {
             <Stack.Screen
                 name="Result"
                 component={ResultScreen}
-                options={{ title: 'Результаты теста' }}
+                options={({ navigation }) => ({
+                    title: 'Результаты теста',
+                    headerLeft: () => (
+                        <TouchableOpacity
+                            onPress={() => navigation.reset({
+                                index: 0,
+                                routes: [{ name: 'HomeMain' }]
+                            })}
+                            style={{ paddingHorizontal: 16 }}
+                        >
+                            <Ionicons name="home" size={24} color="#FFFFFF" />
+                        </TouchableOpacity>
+                    ),
+                })}
             />
             <Stack.Screen
                 name="InterpretationRequest"
