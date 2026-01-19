@@ -44,7 +44,6 @@ export default function PendingResultsScreen({ navigation }) {
     if (isLoading && pendingResults.length === 0) {
         return (
             <View style={styles.container}>
-                <Header title="Ожидают интерпретации" />
                 <Loader />
             </View>
         );

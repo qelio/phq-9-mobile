@@ -94,7 +94,6 @@ export default function AdminDashboardScreen({ navigation }) {
     if (!statistics) {
         return (
             <View style={styles.container}>
-                <Header title="Панель администратора" />
                 <View style={styles.loadingContainer}>
                     <Text>Загрузка...</Text>
                 </View>

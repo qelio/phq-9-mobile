@@ -12,21 +12,7 @@ export default function Header({
                                }) {
     return (
         <View style={styles.container}>
-            <View style={styles.left}>
-                {showBack && onBack && (
-                    <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color={colors.white} />
-                    </TouchableOpacity>
-                )}
-            </View>
 
-            <View style={styles.center}>
-                <Text style={styles.title} numberOfLines={1}>{title}</Text>
-            </View>
-
-            <View style={styles.right}>
-                {rightComponent}
-            </View>
         </View>
     );
 }
